@@ -31,7 +31,8 @@ interface ValidationProp {
 interface Props {
   submitCaption?: string;
   validationRules?: ValidationProp;
-  onSubmit: (values: Values) => Promise<SubmitResult>;
+  onSubmit: (values: Values) => Promise<SubmitResult> | Promise<void>;
+  submitResult?: SubmitResult;
   successMessage?: string;
   failureMessage?: string;
 }
@@ -52,6 +53,7 @@ export const Form: FC<Props> = ({
   children,
   validationRules,
   onSubmit,
+  submitResult,
   successMessage = 'Success!',
   failureMessage = 'Something went wrong',
 }) => {
@@ -103,12 +105,28 @@ export const Form: FC<Props> = ({
     return !haveError;
   };
 
+  const disabled = submitResult
+    ? submitResult.success
+    : submitting || (submitted && !submitError);
+
+  const showError = submitResult
+    ? !submitResult.success
+    : submitted && submitError;
+
+  const showSuccess = submitResult
+    ? submitResult.success
+    : submitted && !submitError;
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (validateForm()) {
       setSubmitting(true);
       setSubmitError(false);
       const result = await onSubmit(values);
+      // The result may be passed through as a prop
+      if (result === undefined) {
+        return;
+      }
       setErrors(result.errors || {});
       setSubmitError(!result.success);
       setSubmitting(false);
@@ -133,6 +151,7 @@ export const Form: FC<Props> = ({
     >
       <form noValidate={true} onSubmit={handleSubmit}>
         <fieldset
+          disabled={disabled}
           className={css`
             margin: 10px auto 0 auto;
             padding: 30px;
@@ -153,7 +172,7 @@ export const Form: FC<Props> = ({
           >
             <PrimaryButton type="submit">{submitCaption}</PrimaryButton>
           </div>
-          {submitted && submitError && (
+          {showError && (
             <p
               className={css`
                 color: red;
@@ -162,7 +181,7 @@ export const Form: FC<Props> = ({
               {failureMessage}
             </p>
           )}
-          {submitted && !submitError && (
+          {showSuccess && (
             <p
               className={css`
                 color: green;
